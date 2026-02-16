@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализатор EXIF-данных</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='fav.png') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #1a1a1d;
+            --card-color: #2c2c34;
+            --primary-text-color: #f0f0f0;
+            --secondary-text-color: #a9a9b3;
+            --accent-color: #4a90e2;
+            --error-color: #e24a4a;
+            --success-color: #34a853;
+            --border-color: #444;
+            --font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--primary-text-color);
+            margin: 0;
+            padding: 2em;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--card-color);
+            border-radius: 12px;
+            padding: 2.5em;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        h1, h3 { font-weight: 600; margin-top: 0; }
+        h1 { text-align: center; font-size: 2.2em; }
+        p { color: var(--secondary-text-color); line-height: 1.6; }
+        header p { text-align: center; font-size: 1.1em; margin-bottom: 2.5em; }
+
+        .upload-form { text-align: center; margin-bottom: 2em; }
+        input[type="file"] { display: none; }
+
+        .custom-file-upload {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            display: inline-block;
+            padding: 40px 60px;
+            cursor: pointer;
+            transition: background-color 0.3s, border-color 0.3s;
+            color: var(--secondary-text-color);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .custom-file-upload:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+            border-color: var(--accent-color);
+        }
+
+        .custom-file-upload.drag-over {
+            border-color: var(--accent-color);
+            border-style: solid;
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        .custom-file-upload.file-selected {
+            border-color: var(--success-color);
+            background-color: rgba(52, 168, 83, 0.1);
+        }
+
+        .custom-file-upload span strong {
+            color: var(--primary-text-color);
+            margin-top: 8px;
+            display: inline-block;
+            word-break: break-all;
+        }
+
+        .submit-btn {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            margin-top: 1.5em;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .submit-btn:hover { background-color: #357abd; transform: translateY(-2px); }
+
+        .result {
+            margin-top: 1.5em;
+            padding: 1.5em;
+            background-color: rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .result.error { background-color: rgba(226, 74, 74, 0.1); border-color: var(--error-color); }
+        .result.error p { color: var(--error-color); font-weight: 500; }
+        .result h3 { margin-bottom: 1em; color: var(--primary-text-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5em; }
+        .result img { max-width: 100%; border-radius: 5px; border: 1px solid var(--border-color); }
+
+        .map-container { margin-top: 1em; border-radius: 8px; overflow: hidden; }
+        .map-container iframe { width: 100%; height: 450px; border: none; }
+
+        .exif-table-container {
+            max-height: 400px;
+            overflow-y: auto; /* Добавляем вертикальный скролл */
+            margin-top: 1em;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+        }
+        .exif-table {
+            width: 100%;
+            border-collapse: collapse; /* Убираем двойные рамки */
+        }
+        .exif-table th, .exif-table td {
+            padding: 10px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .exif-table th {
+            background-color: rgba(0,0,0,0.2);
+            font-weight: 600;
+            position: sticky; /* "Приклеиваем" заголовок при скролле */
+            top: 0;
+        }
+        .exif-table tr:last-child td {
+            border-bottom: none;
+        }
+        .exif-table td:first-child {
+            font-weight: 500;
+            color: var(--primary-text-color);
+            width: 30%; /* Фиксируем ширину первого столбца */
+        }
+        .exif-table td:last-child {
+            word-break: break-all; /* Перенос длинных строк */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Анализ EXIF-данных</h1>
+            <p>Загрузите изображение (JPG/PNG), чтобы увидеть все его метаданные и геометку на карте (при наличии)</p>
+        </header>
+        <main>
+            <form class="upload-form" method="post" enctype="multipart/form-data">
+                <label for="file" class="custom-file-upload"><span>Выберите файл или перетащите его сюда</span></label>
+                <input type="file" name="file" id="file" accept="image/jpeg, image/png">
+                <button type="submit" class="submit-btn">Анализировать</button>
+            </form>
+
+            {% if message %}
+            <div class="result error"><p>{{ message }}</p></div>
+            {% endif %}
+
+            {% if thumbnail_uri %}
+            <div class="result">
+                <h3>Загруженное изображение:</h3>
+                <img src="{{ thumbnail_uri }}" alt="Миниатюра загруженного фото">
+            </div>
+            {% endif %}
+
+            {% if all_exif %}
+            <div class="result">
+                <h3>Все EXIF-данные:</h3>
+                <div class="exif-table-container">
+                    <table class="exif-table">
+                        <thead>
+                            <tr>
+                                <th>Тег</th>
+                                <th>Значение</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tag, value in all_exif.items() %}
+                            <tr>
+                                <td>{{ tag }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Блок с GPS и картой теперь показывается, только если есть координаты -->
+            <!-- Блок показывается, только если coordinates не пустые и содержат реальные числа -->
+            {% if coordinates and coordinates[0] is not none and coordinates[1] is not none %}
+            <div class="result">
+                <h3>Геоданные:</h3>
+                <p><strong>Широта (Latitude):</strong> {{ coordinates[0] }}</p>
+                <p><strong>Долгота (Longitude):</strong> {{ coordinates[1] }}</p>
+
+                {% if map_html %}
+                <div class="map-container">{{ map_html | safe }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </main>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file');
+        const fileUploadLabel = document.querySelector('.custom-file-upload');
+        const fileUploadLabelSpan = fileUploadLabel.querySelector('span');
+
+        function handleFileSelect(files) {
+            if (files && files.length > 0) {
+                const fileName = files[0].name;
+                fileUploadLabelSpan.innerHTML = `✅ Файл выбран: <br><strong>${fileName}</strong>`;
+                fileUploadLabel.classList.add('file-selected');
+            }
+        }
+
+        // --- 1. Обработчик для обычного выбора файла ---
+        fileInput.addEventListener('change', function() {
+            handleFileSelect(this.files);
+        });
+
+        // --- 2. Обработчики для Drag and Drop ---
+
+        // Предотвращаем стандартное поведение браузера
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUploadLabel.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Подсвечиваем область, когда файл над ней
+        fileUploadLabel.addEventListener('dragover', function() {
+            fileUploadLabel.classList.add('drag-over');
+        });
+
+        // Убираем подсветку, когда файл уходит
+        fileUploadLabel.addEventListener('dragleave', function() {
+            fileUploadLabel.classList.remove('drag-over');
+        });
+
+        // Обрабатываем сам момент "бросания" файла
+        fileUploadLabel.addEventListener('drop', function(e) {
+            fileUploadLabel.classList.remove('drag-over');
+
+            // Получаем файл из события
+            const droppedFiles = e.dataTransfer.files;
+
+            // Помещаем этот файл в наш скрытый <input type="file">
+            fileInput.files = droppedFiles;
+
+            // Вызываем нашу функцию для обновления текста
+            handleFileSelect(droppedFiles);
+        });
+
+    </script>
+</body>
+</html>
