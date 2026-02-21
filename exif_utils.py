@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 import io
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -82,29 +83,32 @@ def create_thumbnail_data_uri(image):
 
 def process_image(image_path):
     """
-    Полный цикл обработки: возвращает словарь со всеми данными.
+    Полный цикл обработки: возвращает словарь со всеми данными, включая DateTimeOriginal.
     """
     try:
         image = Image.open(image_path)
+        image_copy = image.copy()  # Работаем с копией, чтобы не изменять оригинал
 
-        # Создаем копию, т.к. getexif() может изменять объект
-        image_copy = image.copy()
-
-        # Получаем ВСЕ данные
         all_exif = get_all_exif_data(image_copy)
-
-        # Получаем GPS-данные
         gps_data = get_gps_ifd(image_copy)
         coordinates = get_coordinates(gps_data)
-
-        # Получаем миниатюру
         thumbnail_uri = create_thumbnail_data_uri(image_copy)
 
-        # Собираем все в один большой словарь
+        datetime_original_obj = None
+        if all_exif and 'DateTimeOriginal' in all_exif:
+            # Формат DateTimeOriginal часто "YYYY:MM:DD HH:MM:SS"
+            # Для strptime нужно "YYYY-MM-DD HH:MM:SS"
+            dt_str = all_exif['DateTimeOriginal'].replace(':', '-', 2)
+            try:
+                datetime_original_obj = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                pass  # Не удалось распарсить дату
+
         result = {
             "all_exif": all_exif,
             "coordinates": coordinates,
-            "thumbnail_uri": thumbnail_uri
+            "thumbnail_uri": thumbnail_uri,
+            "datetime_original": datetime_original_obj  # Дата и время
         }
 
         return result

@@ -160,13 +160,13 @@
 <body>
     <div class="container">
         <header>
-            <h1>Анализ EXIF-данных</h1>
-            <p>Загрузите изображение (JPG/PNG), чтобы увидеть все его метаданные и геометку на карте (при наличии)</p>
+            <h1>Анализатор EXIF-данных</h1>
+            <p>Загрузите изображение (JPG/PNG), чтобы увидеть все его метаданные и геометку на карте. <br>Поддерживается загрузка нескольких файлов для построения маршрута!</p>
         </header>
         <main>
             <form class="upload-form" method="post" enctype="multipart/form-data">
-                <label for="file" class="custom-file-upload"><span>Выберите файл или перетащите его сюда</span></label>
-                <input type="file" name="file" id="file" accept="image/jpeg, image/png">
+                <label for="file" class="custom-file-upload"><span>Выберите файл(ы) или перетащите их сюда</span></label>
+                <input type="file" name="file" id="file" accept="image/jpeg, image/png" multiple> <!-- multiple  -->
                 <button type="submit" class="submit-btn">Анализировать</button>
             </form>
 
@@ -174,49 +174,97 @@
             <div class="result error"><p>{{ message }}</p></div>
             {% endif %}
 
-            {% if thumbnail_uri %}
-            <div class="result">
-                <h3>Загруженное изображение:</h3>
-                <img src="{{ thumbnail_uri }}" alt="Миниатюра загруженного фото">
-            </div>
-            {% endif %}
-
-            {% if all_exif %}
-            <div class="result">
-                <h3>Все EXIF-данные:</h3>
-                <div class="exif-table-container">
-                    <table class="exif-table">
-                        <thead>
-                            <tr>
-                                <th>Тег</th>
-                                <th>Значение</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tag, value in all_exif.items() %}
-                            <tr>
-                                <td>{{ tag }}</td>
-                                <td>{{ value }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            {% if is_single_file %}
+                <!-- ОТОБРАЖЕНИЕ ДЛЯ ОДНОГО ФАЙЛА -->
+                {% if thumbnail_uri %}
+                <div class="result">
+                    <h3>Загруженное изображение:</h3>
+                    <img src="{{ thumbnail_uri }}" alt="Миниатюра загруженного фото">
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
 
-            <!-- Блок с GPS и картой теперь показывается, только если есть координаты -->
-            <!-- Блок показывается, только если coordinates не пустые и содержат реальные числа -->
-            {% if coordinates and coordinates[0] is not none and coordinates[1] is not none %}
-            <div class="result">
-                <h3>Геоданные:</h3>
-                <p><strong>Широта (Latitude):</strong> {{ coordinates[0] }}</p>
-                <p><strong>Долгота (Longitude):</strong> {{ coordinates[1] }}</p>
+                {% if all_exif %}
+                <div class="result">
+                    <h3>Все EXIF-данные:</h3>
+                    <div class="exif-table-container">
+                        <table class="exif-table">
+                            <thead><tr><th>Тег</th><th>Значение</th></tr></thead>
+                            <tbody>
+                                {% for tag, value in all_exif.items() %}
+                                <tr><td>{{ tag }}</td><td>{{ value }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if coordinates and coordinates[0] is not none and coordinates[1] is not none %}
+                <div class="result">
+                    <h3>Геоданные:</h3>
+                    <p><strong>Широта (Latitude):</strong> {{ coordinates[0] }}</p>
+                    <p><strong>Долгота (Longitude):</strong> {{ coordinates[1] }}</p>
+                    {% if map_html %}
+                    <div class="map-container">{{ map_html | safe }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+            {% elif multiple_results %}
+                <!-- ОТОБРАЖЕНИЕ ДЛЯ НЕСКОЛЬКИХ ФАЙЛОВ -->
+
+                {% if sort_message %}
+                <div class="result">
+                    <p>{{ sort_message }}</p>
+                </div>
+                {% endif %}
+
+                {% for data in multiple_results %}
+                <div class="individual-file-results">
+                    <h3>Файл: {{ data.original_filename }}</h3>
+
+                    {% if data.thumbnail_uri %}
+                    <div class="result">
+                        <h4>Загруженное изображение:</h4>
+                        <img src="{{ data.thumbnail_uri }}" alt="Миниатюра загруженного фото">
+                    </div>
+                    {% endif %}
+
+                    {% if data.all_exif %}
+                    <div class="result">
+                        <h4>Все EXIF-данные:</h4>
+                        <div class="exif-table-container">
+                            <table class="exif-table">
+                                <thead><tr><th>Тег</th><th>Значение</th></tr></thead>
+                                <tbody>
+                                    {% for tag, value in data.all_exif.items() %}
+                                    <tr><td>{{ tag }}</td><td>{{ value }}</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if data.coordinates and data.coordinates[0] is not none and data.coordinates[1] is not none %}
+                    <div class="result">
+                        <h4>Геоданные:</h4>
+                        <p><strong>Широта (Latitude):</strong> {{ data.coordinates[0] }}</p>
+                        <p><strong>Долгота (Longitude):</strong> {{ data.coordinates[1] }}</p>
+                        {% if data.datetime_original %}
+                            <p><strong>Дата и время съемки:</strong> {{ data.datetime_original.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
 
                 {% if map_html %}
-                <div class="map-container">{{ map_html | safe }}</div>
+                <div class="result">
+                    <h3>Маршрут на карте:</h3>
+                    <div class="map-container">{{ map_html | safe }}</div>
+                </div>
                 {% endif %}
-            </div>
             {% endif %}
         </main>
     </div>
@@ -228,20 +276,21 @@
 
         function handleFileSelect(files) {
             if (files && files.length > 0) {
-                const fileName = files[0].name;
-                fileUploadLabelSpan.innerHTML = `✅ Файл выбран: <br><strong>${fileName}</strong>`;
+                let text = '';
+                if (files.length === 1) {
+                    text = `✅ Файл выбран: <br><strong>${files[0].name}</strong>`;
+                } else {
+                    text = `✅ Выбрано файлов: <br><strong>${files.length}</strong>`;
+                }
+                fileUploadLabelSpan.innerHTML = text;
                 fileUploadLabel.classList.add('file-selected');
             }
         }
 
-        // --- 1. Обработчик для обычного выбора файла ---
         fileInput.addEventListener('change', function() {
             handleFileSelect(this.files);
         });
 
-        // --- 2. Обработчики для Drag and Drop ---
-
-        // Предотвращаем стандартное поведение браузера
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             fileUploadLabel.addEventListener(eventName, function(e) {
                 e.preventDefault();
@@ -249,30 +298,22 @@
             }, false);
         });
 
-        // Подсвечиваем область, когда файл над ней
         fileUploadLabel.addEventListener('dragover', function() {
             fileUploadLabel.classList.add('drag-over');
         });
 
-        // Убираем подсветку, когда файл уходит
         fileUploadLabel.addEventListener('dragleave', function() {
             fileUploadLabel.classList.remove('drag-over');
         });
 
-        // Обрабатываем сам момент "бросания" файла
         fileUploadLabel.addEventListener('drop', function(e) {
             fileUploadLabel.classList.remove('drag-over');
-
-            // Получаем файл из события
             const droppedFiles = e.dataTransfer.files;
 
-            // Помещаем этот файл в наш скрытый <input type="file">
+            // Assign the dropped files to the file input
             fileInput.files = droppedFiles;
-
-            // Вызываем нашу функцию для обновления текста
             handleFileSelect(droppedFiles);
         });
-
     </script>
 </body>
 </html>
