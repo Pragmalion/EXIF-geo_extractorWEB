@@ -11,7 +11,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Ограничение размера файла 16MB
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # Ограничение размера файла 200MB
 
 
 def allowed_file(filename):
@@ -106,13 +106,13 @@ def upload_file():
             all_have_datetime = all(img.get('datetime_original') for img in geo_tagged_images)
 
             sort_message = ""
-            if all_have_datetime:
-                # Если у всех есть дата, сортируем по ней
-                geo_tagged_images.sort(key=lambda x: x['datetime_original'])
-                sort_message = "Маршрут построен по дате и времени съемки."
-            else:
-                # Иначе - по порядку загрузки (он сохраняется в geo_tagged_images)
-                sort_message = "Маршрут построен по порядку загрузки файлов (не все фото имеют дату съемки)."
+            # if all_have_datetime:
+            #     # если у всех есть дата, сортируем по ней
+            #     geo_tagged_images.sort(key=lambda x: x['datetime_original'])
+            #     sort_message = "маршрут построен по дате и времени съемки."
+            # else:
+            #     # иначе - по порядку загрузки (он сохраняется в geo_tagged_images)
+            #     sort_message = "маршрут построен по порядку загрузки файлов (не все фото имеют дату съемки)."
 
             # Генерация карты маршрута
             map_html = None

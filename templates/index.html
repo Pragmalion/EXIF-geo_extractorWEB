@@ -310,7 +310,6 @@
             fileUploadLabel.classList.remove('drag-over');
             const droppedFiles = e.dataTransfer.files;
 
-            // Assign the dropped files to the file input
             fileInput.files = droppedFiles;
             handleFileSelect(droppedFiles);
         });
